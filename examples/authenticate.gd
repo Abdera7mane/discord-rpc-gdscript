@@ -1,40 +1,53 @@
 extends Node
 
-var ipc: DiscordRPC = DiscordRPC.new()
+# warnings-disable
+
+var discord_rpc: DiscordRPC = DiscordRPC.new()
 
 # https://discord.com/developers/applications/
-# application_id: Found in 'Genneral information & OAuth2'
+# application_id: Found in 'Genneral' information' & OAuth2'
 # secret: Found in 'OAuth2'
 var application_id: int = 123456789012345678
-var secret: String = "mjAJ1Bfzy3ooi2qoJ6eHH1qLfHkTYEqh"
+var secret: String
 var access_token: String
 
 func _ready() -> void:
-	ipc.connect("rpc_ready", self, "_on_ready")
-	ipc.connect("authorized", self, "_on_authorized")
-	ipc.connect("authenticated", self, "_on_authenticated")
-	
-	add_child(ipc)
-	
-	ipc.establish_connection(application_id)
+	discord_rpc.connect("rpc_ready", self, "_on_ready")
+	discord_rpc.connect("authorized", self, "_on_authorized")
+	discord_rpc.connect("authenticated", self, "_on_authenticated")
+	discord_rpc.connect("rpc_error", self, "_on_error")
+	discord_rpc.connect("notification_create", self, "_on_notification")
 
-func _on_ready(user) -> void:
-	print("Ready!")
-	prints("client username:", user["username"])
+	add_child(discord_rpc)
 	
-	if (access_token.empty()):
+	discord_rpc.establish_connection(application_id)
+
+func _on_ready(user: Dictionary) -> void:
+	print("Discord RPC Ready")
+	print("Client username: ", user["username"])
+	
+	if access_token.empty():
 		# Authorize your application for the first time or when 'access_token' expires
 		var scopes: PoolStringArray = ["rpc", "rpc.notifications.read"]
-		ipc.authorize(scopes, secret)
+		discord_rpc.authorize(scopes, secret)
 		
 	else:
-		ipc.authenticate(access_token)
+		discord_rpc.authenticate(access_token)
 
 func _on_authorized(access_token: String) -> void:
 	# You must save the 'access_token' to authenticate directly next time
-	ipc.authenticate(access_token)
+	pass
 
-func _on_authenticated(expires) -> void:
-	print(expires)
+func _on_authenticated(_application: Dictionary, expires: String) -> void:
+	print("access_token expiry: ", expires)
 	print("Authenticated !")
 	# Now you can call RPC commands that require specific scopes
+	
+	discord_rpc.subscribe("NOTIFICATION_CREATE")
+
+func _on_error(error: int) -> void:
+	print("RPC Connection ERROR: ", error)
+
+func _on_notification(channel_id: String, message: Dictionary, icon_url, title: String, body: String) -> void:
+	# Do stuff
+	pass

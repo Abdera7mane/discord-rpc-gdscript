@@ -1,5 +1,7 @@
 class_name RichPresence
 
+# warning-ignore-all:narrowing_conversion
+
 var state: String
 var details: String
 var start_timestamp: int
@@ -57,7 +59,7 @@ func to_dict() -> Dictionary:
 	var secrets: Dictionary = {}
 	if (not self.join_secret.empty()):
 		secrets["join"] = self.join_secret
-	if (not self.large_image_text.empty()):
+	if (not self.spectate_secret.empty()):
 		secrets["spectate"] = self.spectate_secret
 	if (not self.match_secret.empty()):
 		secrets["instanced_match"] = self.match_secret

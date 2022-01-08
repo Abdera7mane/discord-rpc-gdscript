@@ -1,36 +1,5 @@
 class_name IPCUtil
 
-enum OpCodes {
-	HANDSHAKE,
-	FRAME,
-	CLOSE,
-	PING,
-	PONG
-}
-
-const Commands: Dictionary = {
-	DISPATCH = "DISPATCH",
-	AUTHORIZE = "AUTHORIZE",
-	AUTHENTICATE = "AUTHENTICATE",
-	GET_GUILD = "GET_GUILD",
-	GET_GUILDS = "GET_GUILDS",
-	GET_CHANNEL = "GET_CHANNEL",
-	GET_CHANNELS = "GET_CHANNELS",
-	SUBSCRIBE = "SUBSCRIBE",
-	UNSUBSCRIBE = "UNSUBSCRIBE",
-	SET_USER_VOICE_SETTINGS  = "SET_USER_VOICE_SETTINGS",
-	SELECT_VOICE_CHANNEL = "SELECT_VOICE_CHANNEL",
-	GET_SELECTED_VOICE_CHANNEL = "GET_SELECTED_VOICE_CHANNEL",
-	SELECT_TEXT_CHANNEL = "SELECT_TEXT_CHANNEL",
-	GET_VOICE_SETTINGS = "GET_VOICE_SETTINGS",
-	SET_VOICE_SETTINGS = "SET_VOICE_SETTINGS",
-	CAPTURE_SHORTCUT = "CAPTURE_SHORTCUT",
-	SET_CERTIFIED_DEVICES = "SET_CERTIFIED_DEVICES",
-	SET_ACTIVITY = "SET_ACTIVITY",
-	SEND_ACTIVITY_JOIN_INVITE = "SEND_ACTIVITY_JOIN_INVITE",
-	CLOSE_ACTIVITY_REQUEST = "CLOSE_ACTIVITY_REQUEST"
-}
-
 class HandshakePayload extends IPCPayload:
 	var version: int
 	var client_id: int
@@ -51,7 +20,7 @@ class HandshakePayload extends IPCPayload:
 class AuthorizePayload extends IPCPayload:
 	func _init(client_id: int, scopes: PoolStringArray) -> void:
 		self.op_code = OpCodes.FRAME
-		self.command = Commands.AUTHORIZE
+		self.command = DiscordRPCUtil.Commands.AUTHORIZE
 		self.arguments = {
 			"client_id": str(client_id),
 			"scopes": scopes
@@ -60,19 +29,19 @@ class AuthorizePayload extends IPCPayload:
 class AuthenticatePayload extends IPCPayload:
 	func _init(access_token: String) -> void:
 		self.op_code = OpCodes.FRAME
-		self.command = Commands.AUTHENTICATE
+		self.command = DiscordRPCUtil.Commands.AUTHENTICATE
 		self.arguments = {"access_token": access_token}
 
 class SubscribePayload extends IPCPayload:
 	func _init(subscribe_event: String, arg: Dictionary) -> void:
 		self.op_code = OpCodes.FRAME
-		self.command = Commands.SUBSCRIBE
+		self.command = DiscordRPCUtil.Commands.SUBSCRIBE
 		self.arguments = arg
 		self.event = subscribe_event.to_upper()
 
 class UnsubscribePayload extends IPCPayload:
 	func _init(usubscribe_event: String, arg: Dictionary) -> void:
 		self.op_code = OpCodes.FRAME
-		self.command = Commands.UNSUBSCRIBE
+		self.command = DiscordRPCUtil.Commands.UNSUBSCRIBE
 		self.arguments = arg
 		self.event = usubscribe_event.to_upper()
