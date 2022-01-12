@@ -4,9 +4,6 @@ class_name IPC
 
 signal data_recieved(payload)
 
-const PING_INTERVAL_MS: int = 5_000
-const PING_TIMOUT_MS: int = 10_000
-
 var _pipe: IPCPipe
 var _responses_pool: Array
 var _requests_pool: Array
@@ -91,7 +88,7 @@ func is_open() -> bool:
 func close() -> void:
 	if _pipe:
 		_pipe.close()
-	if _io_thread and _io_thread.is_active():
+	if _io_thread and _io_thread.is_active() and _io_thread.is_alive():
 		_semaphore.post()
 		_io_thread.wait_to_finish()
 	_pipe = null
@@ -113,45 +110,19 @@ func _connection_loop(data: Array) -> void:
 	var semaphore: Semaphore = data[1]
 	var pipe: IPCPipe = data[2]
 	
-	var next_ping: int = OS.get_ticks_msec() + PING_INTERVAL_MS
-	var ping_nonce: String
-	var sent_ping: bool
-	var recieved_pong: bool
-	var last_ping: int
-	
 	while pipe.is_open():
-		if pipe.has_reading():
+		while pipe.has_reading():
 			var payload: IPCPayload = self.scan()
-			if sent_ping and payload.nonce == ping_nonce:
-				recieved_pong = true
-				continue
 			mutex.lock()
 			self._responses_pool.append(payload)
 			mutex.unlock()
 			if payload.op_code == IPCPayload.OpCodes.CLOSE:
 				break
 		
-		elif self._requests_pool.size() > 0:
+		while self._requests_pool.size() > 0:
 			mutex.lock()
 			self.post(self._requests_pool.pop_back())
 			mutex.unlock()
-		
-		# Test if the connection is still active
-		if not sent_ping and OS.get_ticks_msec() >= next_ping:
-			var payload: IPCPayload = IPCPayload.new()
-			payload.op_code = IPCPayload.OpCodes.PING
-			ping_nonce = payload.nonce
-			post(payload)
-			sent_ping = true
-			last_ping = OS.get_ticks_msec()
-		
-		if not recieved_pong:
-			if OS.get_ticks_msec() >= last_ping + PING_TIMOUT_MS:
-				break
-		else:
-			sent_ping = false
-			recieved_pong = false
-			next_ping = OS.get_ticks_msec() + PING_INTERVAL_MS
 		
 		semaphore.wait()
 

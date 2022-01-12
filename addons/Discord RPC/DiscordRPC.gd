@@ -101,7 +101,7 @@ signal rpc_error(error)
 # Connection states
 enum {
 	DISCONNECTED,
-	CONNECTIING,
+	CONNECTING,
 	CONNECTED,
 	DISCONNECTING
 }
@@ -113,6 +113,10 @@ enum {
 	ERR_CLIENT_NOT_FOUND
 }
 
+const PING_INTERVAL_MS: int = 5_000
+const PING_TIMEOUT_MS: int = 10_000
+
+
 # Discord RPC version
 const VERSION: int = 1
 
@@ -120,6 +124,11 @@ const DISCORD_API_ENDPOINT: String = "https://discord.com/api/%s"
 
 var _ipc: IPC setget __set
 var _modules: Dictionary setget __set
+var _next_ping: int setget __set
+var _last_ping: int setget __set
+var _sent_ping: bool setget __set
+var _recieved_pong: bool setget __set
+var _ping_nonce: String setget __set
 
 # Current status of DiscordRPC instance
 var status: int = DISCONNECTED setget __set
@@ -156,7 +165,7 @@ func establish_connection(_client_id: int) -> void:
 		return
 	
 	client_id = _client_id
-	status = CONNECTIING
+	status = CONNECTING
 	set_process(true)
 	for i in range(10):
 		var path = IPC.get_pipe_path(i)
@@ -169,7 +178,7 @@ func establish_connection(_client_id: int) -> void:
 	emit_signal("rpc_error", ERR_CLIENT_NOT_FOUND)
 	shutdown()
 
-# Weather connected to a Discord client or not
+# Whether to connected to a Discord client or not
 func is_connected_to_client() -> bool:
 	return _ipc.is_open() and status != DISCONNECTED
 
@@ -248,11 +257,19 @@ func unsubscribe(event: String, arguments: Dictionary = {}) -> void:
 
 # Closes the current connection to the discord client
 func shutdown() -> void:
-	status = DISCONNECTING
-	_ipc.close()
-	status = DISCONNECTED
-	set_process(false)
-	emit_signal("rpc_closed")
+	if status != DISCONNECTED:
+		set_process(false)
+		status = DISCONNECTING
+		_ipc.close()
+		status = DISCONNECTED
+		_next_ping = 0
+		_last_ping = 0
+		_sent_ping = false
+		_recieved_pong = false
+		_ping_nonce = ""
+		client_id = 0
+		scopes = []
+		emit_signal("rpc_closed")
 
 func install_module(module: IPCModule) -> void:
 	if not _modules.has(module.name):
@@ -274,13 +291,14 @@ func ipc_call(function: String, arguments: Array = []):
 
 func _handshake() -> void:
 	if self.status == CONNECTED:
-		push_error("Already handshacked !")
+		push_error("Already sent a handshake !")
 		return
 		
 	var request: IPCPayload = IPCUtil.HandshakePayload.new(VERSION, self.client_id)
 	var response: IPCPayload = yield(self._ipc.send(request), "completed")
 	if response.op_code != IPCPayload.OpCodes.CLOSE and not response.is_error():
 		status = CONNECTED
+		_next_ping = OS.get_ticks_msec() + PING_INTERVAL_MS
 		emit_signal("rpc_ready", response.data["user"])
 		return
 	emit_signal("rpc_error", ERR_HANDSHAKE)
@@ -295,6 +313,27 @@ func _process(_delta: float) -> void:
 	_ipc.poll()
 	if not _ipc.is_open():
 		shutdown()
+		return
+	
+	if status != CONNECTED:
+		return
+	
+	var current_ticks: int = OS.get_ticks_msec()
+	if not _sent_ping and _next_ping <= current_ticks:
+		var payload: IPCPayload = IPCPayload.new()
+		payload.op_code = IPCPayload.OpCodes.PING
+		_ping_nonce = payload.nonce
+		_ipc.send(payload)
+		_sent_ping = true
+		_last_ping = current_ticks
+	
+	elif _sent_ping:
+		if not _recieved_pong and _last_ping + PING_TIMEOUT_MS <= current_ticks:
+			shutdown()
+		elif _recieved_pong:
+			_sent_ping = false
+			_recieved_pong = false
+			_next_ping = current_ticks + PING_INTERVAL_MS
 
 func _on_data(payload: IPCPayload) -> void:
 	if payload.is_error():
@@ -302,9 +341,20 @@ func _on_data(payload: IPCPayload) -> void:
 	
 	emit_signal("raw_data", payload)
 	
+	match payload.op_code:
+		IPCPayload.OpCodes.CLOSE:
+			shutdown()
+		IPCPayload.OpCodes.PING:
+			var reply: IPCPayload = IPCPayload.new()
+			reply.op_code = IPCPayload.OpCodes.PONG
+			_ipc.send(reply)
+		IPCPayload.OpCodes.PONG:
+			_recieved_pong = payload.nonce == _ping_nonce
+	
 	var signal_name = payload.event.to_lower()
-	if payload.command == "DISPATCH" and has_signal(signal_name):
+	if payload.command == DiscordRPCUtil.Commands.DISPATCH and has_signal(signal_name):
 		callv("emit_signal", [signal_name] + payload.data.values())
+
 
 func _to_string() -> String:
 	return "[DiscordRPC:%d]" % self.get_instance_id()
