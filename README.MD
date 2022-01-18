@@ -1,7 +1,7 @@
 # Godot Discord RPC
 
 # 📝 Overview
-This Godot addon is a GDScript implementation of the deprecated [Discord RPC](http:https://github.com/discord/discord-rpc// "Discord RPC") library and covers most of its essential features. this tool is for you if you don't need the full set of [Discord GameSDK](https://discord.com/developers/docs/game-sdk/sdk-starter-guidehttp:// "Discord GameSDK") features.
+This Godot addon is a GDScript implementation of the deprecated [Discord RPC](https://github.com/discord/discord-rpc/) library and covers most of its essential features. this tool is for you if you don't need the full set of [Discord GameSDK](https://discord.com/developers/docs/game-sdk/sdk-starter-guide) features.
 
 ## 💠 Features
 - **Update Rich Presence status.**
@@ -18,7 +18,7 @@ This Godot addon is a GDScript implementation of the deprecated [Discord RPC](ht
 
 ### Manual
 
-1. clone this repository `https://github.com/Abdera7mane/Discord-RPC-GDScript/`
+1. clone this repository `git clone https://github.com/Abdera7mane/Discord-RPC-GDScript/`
 
 2. Install the latest release of https://github.com/Abdera7mane/Godot-UnixSocket/
 
