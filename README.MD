@@ -18,7 +18,7 @@ This Godot addon is a GDScript implementation of the deprecated [Discord RPC](ht
 
 ### Manual
 
-1. clone this repository `git clone https://github.com/AnidemDex/Godot-DialogPlugin`
+1. clone this repository `https://github.com/Abdera7mane/Discord-RPC-GDScript/`
 
 2. Install the latest release of https://github.com/Abdera7mane/Godot-UnixSocket/
 
