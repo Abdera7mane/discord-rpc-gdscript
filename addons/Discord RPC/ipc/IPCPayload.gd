@@ -1,4 +1,3 @@
-class_name IPCPayload
 
 enum OpCodes {
 	HANDSHAKE,
