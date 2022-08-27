@@ -1,4 +1,4 @@
-class_name WindowsPipe extends IPCPipe
+extends "./IPCPipe.gd"
 
 var _file: File
 

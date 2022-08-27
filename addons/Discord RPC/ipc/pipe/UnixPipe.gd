@@ -1,4 +1,4 @@
-class_name UnixPipe extends IPCPipe
+extends "./IPCPipe.gd"
 
 var _peer: StreamPeerUnix
 

@@ -113,6 +113,10 @@ enum {
 	ERR_CLIENT_NOT_FOUND
 }
 
+const IPC: Script = preload("./ipc/IPC.gd")
+const IPCPayload: Script = preload("./ipc/IPCPayload.gd")
+const IPCModule: Script = preload("./ipc/module/IPCModule.gd")
+
 const PING_INTERVAL_MS: int = 5_000
 const PING_TIMEOUT_MS: int = 10_000
 
@@ -145,7 +149,7 @@ func _init() -> void:
 	install_module(RichPresenceModule.new())
 
 func _ready() -> void:
-	set_process(false)
+	set_process(status != DISCONNECTED)
 
 # Attempt to connect to a Discord client instance
 # emits `rpc_ready` on success, otherwise `rpc_error`
@@ -170,7 +174,6 @@ func establish_connection(_client_id: int) -> void:
 	for i in range(10):
 		var path = IPC.get_pipe_path(i)
 		if _ipc.open(path) == OK:
-			_ipc.setup()
 			_handshake()
 			return
 		self._ipc.close()
@@ -178,7 +181,7 @@ func establish_connection(_client_id: int) -> void:
 	emit_signal("rpc_error", ERR_CLIENT_NOT_FOUND)
 	shutdown()
 
-# Whether to connected to a Discord client or not
+# Whether this instance is connected to a Discord client or not
 func is_connected_to_client() -> bool:
 	return _ipc.is_open() and status != DISCONNECTED
 
@@ -214,7 +217,6 @@ func authenticate(access_token: String) -> void:
 
 func get_auth_token(authorize_code: String, secret: String, redirect_uri: String = "http://127.0.0.1") -> String:
 	var http_request: HTTPRequest = HTTPRequest.new()
-	http_request.use_threads = OS.can_use_threads()
 	var url: String = DISCORD_API_ENDPOINT % "oauth2/token"
 	var headers: PoolStringArray = ["Content-Type: application/x-www-form-urlencoded"]
 	var data: Dictionary = {
@@ -282,11 +284,11 @@ func get_module(name: String) -> IPCModule:
 func uninstall_module(name: String) -> void:
 	self._modules.erase(name)
 
-func ipc_call(function: String, arguments: Array = []):
+func rpc_call(function: String, arguments: Array = []):
 	for module in self._modules.values():
-		if (function in module.get_functions()):
+		if function in module.get_functions():
 			return module.callv(function, arguments)
-	push_error("Calling non-existant function \"%s\" via ipc_call" % function)
+	push_error("Calling non-existant function \"%s\" via rpc_call" % function)
 	return null
 
 func _handshake() -> void:

@@ -1,5 +1,7 @@
 class_name IPCUtil
 
+const IPCPayload: Script = preload("../ipc/IPCPayload.gd")
+
 class HandshakePayload extends IPCPayload:
 	var version: int
 	var client_id: int

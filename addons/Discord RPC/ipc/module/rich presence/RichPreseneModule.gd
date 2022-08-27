@@ -1,5 +1,7 @@
-class_name RichPresenceModule extends IPCModule
+class_name RichPresenceModule extends "../IPCModule.gd"
 
+const IPCPayload: Script = preload("../../IPCPayload.gd")
+const UpdateRichPresencePayload: Script = preload("./UpdateRichPresencePayload.gd")
 
 func _init().("RichPresence") -> void:
 	pass

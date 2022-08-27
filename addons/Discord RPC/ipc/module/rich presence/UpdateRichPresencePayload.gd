@@ -1,5 +1,5 @@
 
-class_name UpdateRichPresencePayload extends IPCPayload
+class_name UpdateRichPresencePayload extends "../../IPCPayload.gd"
 	
 func _init(presence: RichPresence) -> void:
 
