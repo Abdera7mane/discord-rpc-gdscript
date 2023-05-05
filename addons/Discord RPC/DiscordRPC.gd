@@ -126,6 +126,12 @@ const VERSION: int = 1
 
 const DISCORD_API_ENDPOINT: String = "https://discord.com/api/%s"
 
+# Discord Flatpak sub path
+const FLATPAK: String = "/app/com.discordapp.Discord"
+
+# Discord Snap sub path
+const SNAP: String = "/snap.discord"
+
 var _ipc: IPC setget __set
 var _modules: Dictionary setget __set
 var _next_ping: int setget __set
@@ -171,12 +177,18 @@ func establish_connection(_client_id: int) -> void:
 	client_id = _client_id
 	status = CONNECTING
 	set_process(true)
+
+	var is_linux: bool = OS.get_name() in ["Server", "X11"]
+
 	for i in range(10):
 		var path = IPC.get_pipe_path(i)
-		if _ipc.open(path) == OK:
-			_handshake()
-			return
-		self._ipc.close()
+
+		for final_path in [path] if not is_linux else [path % "", path % FLATPAK, path % SNAP]:
+			if _ipc.open(final_path) == OK:
+				_handshake()
+				return
+			_ipc.close()
+
 	set_process(false)
 	emit_signal("rpc_error", ERR_CLIENT_NOT_FOUND)
 	shutdown()

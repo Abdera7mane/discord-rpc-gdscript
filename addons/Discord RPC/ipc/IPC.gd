@@ -98,16 +98,21 @@ static func get_pipe() -> IPCPipe:
 
 static func get_pipe_path(index: int) -> String:
 	var path: String
-	match OS.get_name():
+	var os_name: String = OS.get_name()
+	match os_name:
 		"Windows":
 			path = "\\\\?\\pipe\\"
 		"Server", "X11", "OSX":
 			for env_var in ["XDG_RUNTIME_DIR","TMPDIR","TMP","TEMP"]:
-				if (OS.has_environment(env_var)):
-					path = OS.get_environment(env_var) + "/"
+				if OS.has_environment(env_var):
+					path = OS.get_environment(env_var)
 					break
 			if path.empty():
 				path = "/tmp/"
+			elif os_name in ["Server", "X11"]:
+				path += "%s/"
+			else:
+				path += "/"
 		_:
 			return ""
 			
