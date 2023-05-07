@@ -12,11 +12,11 @@ var secret: String
 var access_token: String
 
 func _ready() -> void:
-	discord_rpc.connect("rpc_ready", self, "_on_ready")
-	discord_rpc.connect("authorized", self, "_on_authorized")
-	discord_rpc.connect("authenticated", self, "_on_authenticated")
-	discord_rpc.connect("rpc_error", self, "_on_error")
-	discord_rpc.connect("notification_create", self, "_on_notification")
+	discord_rpc.rpc_ready.connect(_on_ready)
+	discord_rpc.authorized.connect(_on_authorized)
+	discord_rpc.authenticated.connect(_on_authenticated)
+	discord_rpc.rpc_error.connect(_on_error)
+	discord_rpc.notification_create.connect(_on_notification)
 
 	add_child(discord_rpc)
 	
@@ -26,9 +26,9 @@ func _on_ready(user: Dictionary) -> void:
 	print("Discord RPC Ready")
 	print("Client username: ", user["username"])
 	
-	if access_token.empty():
+	if access_token.is_empty():
 		# Authorize your application for the first time or when 'access_token' expires
-		var scopes: PoolStringArray = ["rpc", "rpc.notifications.read"]
+		var scopes: PackedStringArray = ["rpc", "rpc.notifications.read"]
 		discord_rpc.authorize(scopes, secret)
 		
 	else:
