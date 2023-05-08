@@ -369,7 +369,8 @@ func shutdown() -> void:
 		application_id = 0
 		connection = null
 		_missed_pongs = 0
-		_timer.queue_free()
+		if is_instance_valid(_timer):
+			_timer.queue_free()
 		scopes = []
 		status = Status.DISCONNECTED
 		rpc_closed.emit()
@@ -384,7 +385,7 @@ func _create_connection() -> void:
 	connection.payload_received.connect(_on_data)
 
 	_timer = Timer.new()
-	_timer.wait_time = PING_INTERVAL_MS
+	_timer.wait_time = PING_INTERVAL_MS / 1000.0
 	_timer.timeout.connect(
 		func():
 			if _missed_pongs < 3:
@@ -423,7 +424,10 @@ func _notification(what: int) -> void:
 
 func _process(_delta: float) -> void:
 	if status != Status.DISCONNECTED:
-		connection.poll()
+		if connection.is_open():
+			connection.poll()
+		else:
+			shutdown()
 	
 func _on_data(payload: Payload) -> void:
 	if payload.is_error():
