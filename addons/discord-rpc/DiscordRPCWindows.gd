@@ -32,7 +32,7 @@ func is_open() -> bool:
 	return file and file.is_open()
 
 func has_payload() -> bool:
-	return is_open() and file.get_len() > 0
+	return is_open() and file.get_length() > 0
 
 func close() -> void:
 	if is_open():
