@@ -58,7 +58,7 @@ signal voice_state_delete(member: Dictionary)
 signal voice_settings_update(settings: Dictionary)
 
 ## Emitted when the client's voice connection status changes.
-## [code]state[/code] is the [url=https://discord.com/developers/docs/topics/rpc#voiceconnectionstatus-voice-connection-states]voice connection state[url].
+## [code]state[/code] is the [url=https://discord.com/developers/docs/topics/rpc#voiceconnectionstatus-voice-connection-states]voice connection state[/url].
 ## [code]hostname[/code] is the address of the connected voice server.
 ## [code]pings[/code] is a list of the last 20 pings in milliseconds.
 ## [code]average_ping[/code] is the average ping in milliseconds.
@@ -155,7 +155,6 @@ const Commands: Dictionary = {
 	SELECT_TEXT_CHANNEL = "SELECT_TEXT_CHANNEL",
 	GET_VOICE_SETTINGS = "GET_VOICE_SETTINGS",
 	SET_VOICE_SETTINGS = "SET_VOICE_SETTINGS",
-	CAPTURE_SHORTCUT = "CAPTURE_SHORTCUT",
 	SET_CERTIFIED_DEVICES = "SET_CERTIFIED_DEVICES",
 	SET_ACTIVITY = "SET_ACTIVITY",
 	SEND_ACTIVITY_JOIN_INVITE = "SEND_ACTIVITY_JOIN_INVITE",
@@ -221,8 +220,8 @@ var application_id: int
 var scopes: PackedStringArray
 
 
-# Attempts to connect to a Discord client instance.
-# emits `rpc_ready` on success, otherwise `rpc_error`.
+## Attempts to connect to a Discord client instance.
+## emits [code]rpc_ready[/code] on success, otherwise [code]rpc_error[/code].
 func establish_connection(_application_id: int) -> void:
 	if is_connected_to_client():
 		push_error("DiscordRPC: Already in an active connection")
@@ -253,33 +252,29 @@ func establish_connection(_application_id: int) -> void:
 	rpc_error.emit(ERR_CLIENT_NOT_FOUND)
 	shutdown()
 
-# Whether this instance is connected to a Discord client or not
+## Whether this instance is connected to a Discord client or not
 func is_connected_to_client() -> bool:
 	return status == Status.CONNECTED
 
-# Used to authenticate a new client with your application. By default this opens
-# a modal that asks the user to authorize access to your application.  
-# `scopes` a PoolSringArray of OAuth2 scopes:
-# https://discord.com/developers/docs/topics/oauth2#shared-resources-oauth2-scopes  
-# `secret` OAuth2 client's sceret code.
-func authorize(_scopes: Array[String], secret: String) -> bool:
+## Used to authenticate a new client with your application. By default this
+## opens a modal that asks the user to authorize access to your application.  
+## [code]scopes[/code] a PoolSringArray of [url=https://discord.com/developers/docs/topics/oauth2#shared-resources-oauth2-scopes]OAuth2 scopes[/url].
+func authorize(auth_scopes: Array[String]) -> String:
 	if not is_connected_to_client():
 		push_error("DiscordRPC: Can not authorize while disconnected")
-		return false
+		return ""
 		
-	var request: Payload = AuthorizePayload.new(application_id, _scopes)
+	var request: Payload = AuthorizePayload.new(application_id, auth_scopes)
 	var response: Payload = await connection.send(request)
 
+	var code: String = ""
 	if not response.is_error():
-		var code: String = response.data["code"]
-		var token: String = await get_auth_token(code, secret)
-		if not token.is_empty():
-			authorized.emit(token)
-			return await authenticate(token)
+		code = response.data["code"]
+		authorized.emit(code)
 
-	return not response.is_error()
+	return code
 
-# Used to authenticate an existing client with your application.
+## Used to authenticate an existing client with your application.
 func authenticate(access_token: String) -> bool:
 	if not is_connected_to_client():
 		push_error("DiscordRPC: Can not authenticate while disconnected")
@@ -332,29 +327,226 @@ func get_auth_token(
 
 	return JSON.parse_string(body.get_string_from_utf8()).get("access_token", "")
 
-# Subscribes to events in order for certain signals to be emitted.
-# Returns [code]true[/code] on success.  
-# [code]event[/code] is the event name to subscribe to in UPPER_CASE.  
-# [code]arguments[/code] a Dictionary of name|value pair of arguments needed by certain events.  
-# reference: https://discord.com/developers/docs/topics/rpc#subscribe
+## Retrieves a guild information known to the client.
+## Returns a [code]Dictionary[/code] containing: [code]id[/code],
+## [code]name[/code], [code]icon_url[/code] and [code]members[/code].
+## [code]id[/code] The id of the guild.  
+## [code]timeout[/code] time to wait before aborting the request on timeout.
+## [url=https://discord.com/developers/docs/topics/rpc#getguild]Reference[/url]
+func get_guild(id: String, timeout: int = 0) -> Dictionary:
+	var request: Payload = Payload.new()
+	request.opcode = Payload.OpCodes.FRAME
+	request.command = Commands.GET_GUILD
+	request.arguments = {guild_id = id}
+	if timeout > 0:
+		request["timeout"] = timeout
+	var response: Payload = await connection.send(request)
+	return response.data
+
+## Retrieves a list of guilds from the client. Returns a list of partial guild
+## objects ([code]id[/code] and [code]name[/code]).
+## [url=https://discord.com/developers/docs/topics/rpc#getguilds]Reference[/url]
+func get_guilds() -> Array[Dictionary]:
+	var request: Payload = Payload.new()
+	request.opcode = Payload.OpCodes.FRAME
+	request.command = Commands.GET_GUILDS
+	var response: Payload = await connection.send(request)
+	var guilds: Array[Dictionary] = []
+	guilds.assign(response.data["guilds"])
+	return guilds
+
+## Retrieves channel information from the client.
+## [code]id[/code] The id of the channel.  
+## [url=https://discord.com/developers/docs/topics/rpc#getchannel]Reference[/url]
+func get_channel(id: String) -> Dictionary:
+	var request: Payload = Payload.new()
+	request.opcode = Payload.OpCodes.FRAME
+	request.command = Commands.GET_CHANNEL
+	request.arguments = {channel_id = id}
+	var response: Payload = await connection.send(request)
+	return response.data
+
+## Retrieves a list of channels of a guild from the client.
+## Returns a list of partial channel objects
+## ([code]id[/code], [code]name[/code] and [code]type[/code]).
+## [code]guild_id[/code] The id of the guild to get the channels from.  
+## [url=https://discord.com/developers/docs/topics/rpc#getchannels]Reference[/url]
+func get_channels(guild_id: String) -> Array[Dictionary]:
+	var request: Payload = Payload.new()
+	request.opcode = Payload.OpCodes.FRAME
+	request.command = Commands.GET_CHANNELS
+	request.arguments = {guild_id = guild_id}
+	var response: Payload = await connection.send(request)
+	var channels: Array[Dictionary] = []
+	channels.assign(response.data["channels"])
+	return channels
+
+## Subscribes to events in order for certain signals to be emitted.
+## Returns [code]true[/code] on success.  
+## [code]event[/code] is the event name to subscribe to in UPPER_CASE.  
+## [code]arguments[/code] a Dictionary of name|value pair of arguments
+## needed by certain events.  
+## [url=https://discord.com/developers/docs/topics/rpc#subscribe]Reference[/url]
 func subscribe(event: String, arguments: Dictionary = {}) -> bool:
 	var response := await connection.send(SubscribePayload.new(event, arguments))
 	return not response.is_error()
 
-# Unsubscribes from events.
-# `event` is the event name that was subscribe to in UPPER_CASE.
-# `arguments` a Dictionary of name|value pair of arguments of the previously subscribed event.  
-# reference: https://discord.com/developers/docs/topics/rpc#unsubscribe
+## Unsubscribes from events.
+## [code]event[/code] is the event name that was subscribe to in UPPER_CASE.
+## [code]arguments[/code] a Dictionary of name|value pair of arguments of 
+## the previously subscribed event.  
+## [url=https://discord.com/developers/docs/topics/rpc#unsubscribe]Reference[/url]
 func unsubscribe(event: String, arguments: Dictionary = {}) -> bool:
 	var response := await connection.send(UnsubscribePayload.new(event, arguments))
 	return not response.is_error()
 
+## Changes voice settings of a user in a voice channel.
+## [url=https://discord.com/developers/docs/topics/rpc#setuservoicesettings]Reference[/url]
+func set_user_voice_settings(settings: Dictionary) -> Dictionary:
+	var request: Payload = Payload.new()
+	request.opcode = Payload.OpCodes.FRAME
+	request.command = Commands.SET_USER_VOICE_SETTINGS
+	request.arguments = settings
+	var response: Payload = await connection.send(request)
+	return response.data
+
+## Joins or leaves a voice channel.
+## [code]id[/code] is the voice channel id (leaves if empty).
+## [code]timeout[/code] time to wait before aborting the request on timeout.
+## [code]force[/code] forces the client to join a voice channel.
+## [url=https://discord.com/developers/docs/topics/rpc#selectvoicechannel]Reference[/url]
+func select_voice_channel(
+	id: String, timeout: int = 0, force: bool = false
+) -> Dictionary:
+	var request: Payload = Payload.new()
+	request.opcode = Payload.OpCodes.FRAME
+	request.command = Commands.SELECT_VOICE_CHANNEL
+	request.arguments = {
+		channel_id = null if id.is_empty() else id,
+		force = force
+	}
+	if timeout > 0:
+		request["timeout"] = timeout
+	var response: Payload = await connection.send(request)
+	return response.data
+
+## Joins a voice channel.
+## [code]id[/code] is the voice channel id (leaves if empty).
+## [code]timeout[/code] time to wait before aborting the request on timeout.
+## [code]force[/code] forces the client to join a voice channel.
+## [url=https://discord.com/developers/docs/topics/rpc#selectvoicechannel]Reference[/url]
+func join_voice_channel(
+	id: String, timeout: int = 0, force: bool = false
+) -> Dictionary:
+	return await select_voice_channel(id, timeout, force)
+
+## Leaves a voice channel.
+## [code]id[/code] is the voice channel id (leaves if empty).
+## [code]timeout[/code] time to wait before aborting the request on timeout.
+## [code]force[/code] forces the client to join a voice channel.
+## [url=https://discord.com/developers/docs/topics/rpc#selectvoicechannel]Reference[/url]
+func leave_voice_channel(timeout: int = 0) -> void:
+	await select_voice_channel("", timeout)
+
+## Gets the current voice channel the client is in.
+## [url=https://discord.com/developers/docs/topics/rpc#getselectedvoicechannel]Reference[/url]
+func get_selected_voice_channel() -> Dictionary:
+	var request: Payload = Payload.new()
+	request.opcode = Payload.OpCodes.FRAME
+	request.command = Commands.GET_SELECTED_VOICE_CHANNEL
+	var response: Payload = await connection.send(request)
+	return response.data
+
+## Joins or leaves a text channel.
+## [code]id[/code] is the voice channel id (leaves if empty).
+## [code]timeout[/code] time to wait before aborting the request on timeout.
+## [url=https://discord.com/developers/docs/topics/rpc#selecttextchannel]Reference[/url]
+func select_text_channel(id: String, timeout: int = 0) -> Dictionary:
+	var request: Payload = Payload.new()
+	request.opcode = Payload.OpCodes.FRAME
+	request.command = Commands.SELECT_TEXT_CHANNEL
+	request.arguments = {channel_id = null if id.is_empty() else id}
+	if timeout > 0:
+		request["timeout"] = timeout
+	var response: Payload = await connection.send(request)
+	return response.data
+
+## Joins a text channel.
+## [code]id[/code] is the voice channel id (leaves if empty).
+## [code]timeout[/code] time to wait before aborting the request on timeout.
+## [url=https://discord.com/developers/docs/topics/rpc#selecttextchannel]Reference[/url]
+func join_text_channel(id: String, timeout: int = 0) -> Dictionary:
+	return await select_text_channel(id, timeout)
+
+## Leaves a text channel.
+## [code]id[/code] is the voice channel id (leaves if empty).
+## [code]timeout[/code] time to wait before aborting the request on timeout.
+## [url=https://discord.com/developers/docs/topics/rpc#selecttextchannel]Reference[/url]
+func leaves_text_channel(timeout: int = 0) -> void:
+	await select_text_channel("", timeout)
+
+## Retrieves the client's voice settings.
+## [url=https://discord.com/developers/docs/topics/rpc#getvoicesettings]Reference[/url]
+func get_voice_settings() -> Dictionary:
+	var request: Payload = Payload.new()
+	request.opcode = Payload.OpCodes.FRAME
+	request.command = Commands.GET_VOICE_SETTINGS
+	var response: Payload = await connection.send(request)
+	return response.data
+
+## Retrieves the client's voice settings.
+## [url=https://discord.com/developers/docs/topics/rpc#getvoicesettings]Reference[/url]
+func set_voice_settings(settings: Dictionary) -> Dictionary:
+	var request: Payload = Payload.new()
+	request.opcode = Payload.OpCodes.FRAME
+	request.command = Commands.SET_VOICE_SETTINGS
+	request.arguments = settings
+	var response: Payload = await connection.send(request)
+	return response.data
+
+## Used by hardware manufacturers to send information about the current state of
+## their certified devices that are connected to Discord.
+## [url=https://discord.com/developers/docs/topics/rpc#setcertifieddevices]Reference[/url]
+func set_certified_devices(devices: Array[Dictionary]) -> bool:
+	var request: Payload = Payload.new()
+	request.opcode = Payload.OpCodes.FRAME
+	request.command = Commands.SET_CERTIFIED_DEVICES
+	request.arguments = {devices = devices}
+	var response: Payload = await connection.send(request)
+	return not response.is_error()
+
+## Updates the user's Rich Presence status.
+## [url=https://discord.com/developers/docs/topics/rpc#setactivity]Reference[/url]
 func update_presence(presence: Dictionary) -> bool:
 	var response := await connection.send(UpdateRichPresencePayload.new(presence))
 	return not response.is_error()
 
+## Clears the user's Rich Presence status.
+## [url=https://discord.com/developers/docs/topics/rpc#setactivity]Reference[/url]
 func clear_presence() -> bool:
 	return await update_presence({})
+
+## Accepts an "Ask to Join" request.
+## [code]user_id[/code] is the id of the requesting user.
+## [url=https://discord.com/developers/docs/topics/rpc#sendactivityjoininvite]Reference[/url]
+func accept_join_request(user_id: String) -> bool:
+	var payload: Payload = Payload.new()
+	payload.opcode = Payload.OpCodes.FRAME
+	payload.command = Commands.SEND_ACTIVITY_JOIN_INVITE
+	payload.arguments = {user_id = user_id}
+	var response: Payload = await connection.send(payload)
+	return not response.is_error()
+
+## Rejects an "Ask to Join" request.
+## [code]user_id[/code] is the id of the requesting user.
+## [url=https://discord.com/developers/docs/topics/rpc#sendactivityjoininvite]Reference[/url]
+func reject_join_request(user_id: String) -> bool:
+	var payload: Payload = Payload.new()
+	payload.opcode = Payload.OpCodes.FRAME
+	payload.command = Commands.CLOSE_ACTIVITY_REQUEST
+	payload.arguments = {user_id = user_id}
+	var response: Payload = await connection.send(payload)
+	return not response.is_error()
 
 func ping() -> void:
 	var payload: Payload = Payload.new()
@@ -362,7 +554,7 @@ func ping() -> void:
 	connection.send(payload)
 	_missed_pongs += 1
 
-# Closes the current connection to the discord client
+## Closes the current connection to the discord client
 func shutdown() -> void:
 	if status != Status.DISCONNECTED:
 		connection.close()
@@ -408,7 +600,6 @@ func _handshake() -> void:
 	var response: Payload = await connection.send(request)
 
 	if response.is_close_request() or response.is_error():
-		print("Bye bye")
 		rpc_error.emit(ERR_HANDSHAKE)
 		shutdown()
 		return
