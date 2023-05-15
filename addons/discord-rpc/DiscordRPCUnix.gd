@@ -8,6 +8,28 @@ const SNAP: String = "/snap.discord"
 
 var stream: StreamPeer # StreamPeerUnix
 
+func _init() -> void:
+	var script: Script = get_script()
+	if not script.has_meta("LIBUNIXSOCKET"):
+			var library: GDExtension = GDExtension.new()
+			var os: String = OS.get_name()
+			var library_path: String = "./addons/unix-socket"
+			library_path = library_path.path_join("libunixsocket.%s.%s.%s.%s")
+			library_path = library_path % [
+					os.to_lower(),
+					"debug" if OS.is_debug_build() else "release",
+					_get_architecture(),
+					"dylib" if os == "macOS" else "so"
+			]
+			var start: int = Time.get_ticks_msec()
+			if library.open_library(library_path, "unixsocket_library_init") == OK:
+					start = Time.get_ticks_msec()
+					var level: int = library.get_minimum_library_initialization_level()
+					library.initialize_library(level)
+					script.set_meta("LIBUNIXSOCKET", library)
+			else:
+					push_error("Failed loading native library: ", library_path)
+
 func get_possible_paths() -> Array[String]:
 	var path: String
 
@@ -56,4 +78,15 @@ func close() -> void:
 
 func _to_string() -> String:
 	return "[DiscordRPCUnix:%d]" % get_instance_id()
+
+static func _get_architecture() -> String:
+	var arch: String
+	if OS.get_name() == "macOS":
+		arch = "universal"
+	else:
+		for possible_arch in ["x86_32", "x86_64", "arm32", "arm64"]:
+			if OS.has_feature(possible_arch):
+				arch = possible_arch
+				break
+	return arch
 
