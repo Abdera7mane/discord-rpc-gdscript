@@ -13,7 +13,7 @@ func _init() -> void:
 	if not script.has_meta("LIBUNIXSOCKET"):
 			var library: GDExtension = GDExtension.new()
 			var os: String = OS.get_name()
-			var library_path: String = "./addons/unix-socket"
+			var library_path: String = ProjectSettings.globalize_path("res://addons/unix-socket")
 			library_path = library_path.path_join("libunixsocket.%s.%s.%s.%s")
 			library_path = library_path % [
 					os.to_lower(),
@@ -21,9 +21,7 @@ func _init() -> void:
 					_get_architecture(),
 					"dylib" if os == "macOS" else "so"
 			]
-			var start: int = Time.get_ticks_msec()
 			if library.open_library(library_path, "unixsocket_library_init") == OK:
-					start = Time.get_ticks_msec()
 					var level: int = library.get_minimum_library_initialization_level()
 					library.initialize_library(level)
 					script.set_meta("LIBUNIXSOCKET", library)
